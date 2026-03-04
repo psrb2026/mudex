@@ -1,0 +1,9 @@
+{
+  "development": {
+    "username": "user",
+    "password": "password",
+    "database": "mudex_db",
+    "host": "mudex-postgres",
+    "dialect": "postgres"
+  }
+}
