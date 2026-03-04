@@ -1,1 +1,30 @@
 
+{
+  "development": {
+    "username": "mudex",
+    "password": "mudex123",
+    "database": "mudex_db",
+    "host": "postgres",
+    "port": 5432,
+    "dialect": "postgres",
+    "logging": false
+  },
+  "test": {
+    "username": "mudex",
+    "password": "mudex123",
+    "database": "mudex_db_test",
+    "host": "postgres",
+    "port": 5432,
+    "dialect": "postgres",
+    "logging": false
+  },
+  "production": {
+    "username": "mudex",
+    "password": "mudex123",
+    "database": "mudex_db",
+    "host": "postgres",
+    "port": 5432,
+    "dialect": "postgres",
+    "logging": false
+  }
+}
