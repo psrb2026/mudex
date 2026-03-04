@@ -58,33 +58,55 @@ services:
     build: ./services/auth-service
     container_name: mudex-auth-service
     environment:
+      - PORT=3001
       - DB_HOST=postgres
       - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=mudex_super_secret
     depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - "3001"
     command: sh -c "npm install && npm start"
 
   location-service:
     build: ./services/location-service
     container_name: mudex-location-service
     environment:
+      - PORT=3005
       - DB_HOST=postgres
       - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=mudex_super_secret
     depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - "3005"
     command: sh -c "npm install && npm start"
 
   api-gateway:
     build: ./api-gateway
     container_name: mudex-api-gateway
+    environment:
+      - PORT=3000
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - LOCATION_SERVICE_URL=http://location-service:3005
+      - USER_SERVICE_URL=http://user-service:3002
+      - RIDE_SERVICE_URL=http://ride-service:3003
+      - DISPATCH_SERVICE_URL=http://dispatch-service:3004
+      - PAYMENT_SERVICE_URL=http://payment-service:3006
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+      - ANALYTICS_SERVICE_URL=http://analytics-service:3008
+      - JWT_SECRET=mudex_super_secret
     ports:
       - "3000:3000"
     depends_on:
       - auth-service
       - location-service
-    command: sh -c "npm install && npm start"
 
 networks:
   default:
