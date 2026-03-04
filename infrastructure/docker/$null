@@ -1,0 +1,3 @@
+Error response from daemon: get docker_postgres_data: no such volume
+Error response from daemon: get docker_redis_data: no such volume
+Error response from daemon: get docker_rabbitmq_data: no such volume

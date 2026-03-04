@@ -1,0 +1,22 @@
+{
+  "name": "mudex-location-service",
+  "version": "1.0.0",
+  "description": "Serviço de Geolocalização - Mudex",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "redis": "^4.6.12",
+    "winston": "^3.11.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2",
+    "georedis": "^3.1.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

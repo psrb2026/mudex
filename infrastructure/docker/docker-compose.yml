@@ -1,0 +1,231 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Banco principal
+  postgres:
+    image: postgres:15-alpine
+    container_name: mudex-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mudex
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - mudex-network
+
+  # Redis - Cache e GEO
+  redis:
+    image: redis:7-alpine
+    container_name: mudex-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mudex-network
+
+  # RabbitMQ - Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: mudex-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - mudex-network
+
+  # API Gateway
+  api-gateway:
+    build: ../../api-gateway
+    container_name: mudex-api-gateway
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3002
+      - RIDE_SERVICE_URL=http://ride-service:3003
+      - DISPATCH_SERVICE_URL=http://dispatch-service:3004
+      - LOCATION_SERVICE_URL=http://location-service:3005
+      - PAYMENT_SERVICE_URL=http://payment-service:3006
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+      - ANALYTICS_SERVICE_URL=http://analytics-service:3008
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+    networks:
+      - mudex-network
+
+  # Auth Service
+  auth-service:
+    build: ../../services/auth-service
+    container_name: mudex-auth-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=mudex_auth
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mudex-network
+
+  # User Service
+  user-service:
+    build: ../../services/user-service
+    container_name: mudex-user-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=mudex_users
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - AUTH_SERVICE_URL=http://auth-service:3001
+    depends_on:
+      - postgres
+    networks:
+      - mudex-network
+
+  # Ride Service
+  ride-service:
+    build: ../../services/ride-service
+    container_name: mudex-ride-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=mudex_rides
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379
+      - DISPATCH_SERVICE_URL=http://dispatch-service:3004
+      - PAYMENT_SERVICE_URL=http://payment-service:3006
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mudex-network
+
+  # Dispatch Service
+  dispatch-service:
+    build: ../../services/dispatch-service
+    container_name: mudex-dispatch-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3004
+      - REDIS_URL=redis://redis:6379
+      - RIDE_SERVICE_URL=http://ride-service:3003
+      - USER_SERVICE_URL=http://user-service:3002
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+      - LOCATION_SERVICE_URL=http://location-service:3005
+    depends_on:
+      - redis
+      - rabbitmq
+    networks:
+      - mudex-network
+
+  # Location Service
+  location-service:
+    build: ../../services/location-service
+    container_name: mudex-location-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3005
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3002
+      - RIDE_SERVICE_URL=http://ride-service:3003
+    ports:
+      - "3005:3005"
+    depends_on:
+      - redis
+    networks:
+      - mudex-network
+
+  # Payment Service
+  payment-service:
+    build: ../../services/payment-service
+    container_name: mudex-payment-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3006
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=mudex_payments
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mudex-network
+
+  # Notification Service
+  notification-service:
+    build: ../../services/notification-service
+    container_name: mudex-notification-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3007
+      - REDIS_URL=redis://redis:6379
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+    ports:
+      - "3007:3007"
+    depends_on:
+      - redis
+    networks:
+      - mudex-network
+
+  # Analytics Service
+  analytics-service:
+    build: ../../services/analytics-service
+    container_name: mudex-analytics-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3008
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=mudex_analytics
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mudex-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  mudex-network:
+    driver: bridge

@@ -1,0 +1,2 @@
+{"level":"warn","message":"Firebase não configurado:","service":"notification-service","timestamp":"2026-02-28T06:12:45.034Z"}
+{"level":"info","message":"Notification Service rodando na porta 3007","service":"notification-service","timestamp":"2026-02-28T06:12:45.139Z"}

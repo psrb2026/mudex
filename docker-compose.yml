@@ -1,0 +1,297 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # INFRAESTRUTURA
+  # ============================================
+  
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: mudex-postgres
+    environment:
+      POSTGRES_USER: mudex
+      POSTGRES_PASSWORD: mudex123
+      POSTGRES_DB: mudex_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mudex -d mudex_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: mudex-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: mudex-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # MICROSERVIÇOS
+  # ============================================
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: mudex-auth-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=mudex
+      - DB_PASSWORD=mudex123
+      - DB_NAME=mudex_db
+      - DB_DIALECT=postgres
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=mudex-super-secret-key-32chars-long-min
+      - JWT_REFRESH_SECRET=mudex-refresh-secret-32chars-long-min
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/auth-service:/app
+      - /app/node_modules
+    command: sh -c "npm install && npx sequelize-cli db:migrate && npm start"
+
+  user-service:
+    build: ./services/user-service
+    container_name: mudex-user-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=mudex
+      - DB_PASSWORD=mudex123
+      - DB_NAME=mudex_db
+      - DB_DIALECT=postgres
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - JWT_SECRET=mudex-super-secret-key-32chars-long-min
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./services/user-service:/app
+      - /app/node_modules
+    command: sh -c "npm install && npx sequelize-cli db:migrate && npm start"
+
+  ride-service:
+    build: ./services/ride-service
+    container_name: mudex-ride-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=mudex
+      - DB_PASSWORD=mudex123
+      - DB_NAME=mudex_db
+      - DB_DIALECT=postgres
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - USER_SERVICE_URL=http://user-service:3002
+      - DISPATCH_SERVICE_URL=http://dispatch-service:3004
+    ports:
+      - "3003:3003"
+    depends_on:
+      - user-service
+      - dispatch-service
+    volumes:
+      - ./services/ride-service:/app
+      - /app/node_modules
+    command: sh -c "npm install && npx sequelize-cli db:migrate && npm start"
+
+  dispatch-service:
+    build: ./services/dispatch-service
+    container_name: mudex-dispatch-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=mudex
+      - DB_PASSWORD=mudex123
+      - DB_NAME=mudex_db
+      - DB_DIALECT=postgres
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - LOCATION_SERVICE_URL=http://location-service:3005
+    ports:
+      - "3004:3004"
+    depends_on:
+      - location-service
+    volumes:
+      - ./services/dispatch-service:/app
+      - /app/node_modules
+    command: sh -c "npm install && npx sequelize-cli db:migrate && npm start"
+
+  location-service:
+    build: ./services/location-service
+    container_name: mudex-location-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=mudex
+      - DB_PASSWORD=mudex123
+      - DB_NAME=mudex_db
+      - DB_DIALECT=postgres
+      - REDIS_URL=redis://redis:6379
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-fake-key}
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/location-service:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm start"
+
+  payment-service:
+    build: ./services/payment-service
+    container_name: mudex-payment-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3006
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=mudex
+      - DB_PASSWORD=mudex123
+      - DB_NAME=mudex_db
+      - DB_DIALECT=postgres
+      - REDIS_URL=redis://redis:6379
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-sk_test_fake}
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./services/payment-service:/app
+      - /app/node_modules
+    command: sh -c "npm install && npx sequelize-cli db:migrate && npm start"
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: mudex-notification-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3007
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=mudex
+      - DB_PASSWORD=mudex123
+      - DB_NAME=mudex_db
+      - DB_DIALECT=postgres
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-mudex-dev}
+    ports:
+      - "3007:3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./services/notification-service:/app
+      - /app/node_modules
+    command: sh -c "npm install && npx sequelize-cli db:migrate && npm start"
+
+  analytics-service:
+    build: ./services/analytics-service
+    container_name: mudex-analytics-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3008
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=mudex
+      - DB_PASSWORD=mudex123
+      - DB_NAME=mudex_db
+      - DB_DIALECT=postgres
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - ML_SERVING_URL=http://localhost:8000
+    ports:
+      - "3008:3008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/analytics-service:/app
+      - /app/node_modules
+    command: sh -c "npm install && npx sequelize-cli db:migrate && npm start"
+
+  # ============================================
+  # API GATEWAY
+  # ============================================
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: mudex-api-gateway
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3002
+      - RIDE_SERVICE_URL=http://ride-service:3003
+      - DISPATCH_SERVICE_URL=http://dispatch-service:3004
+      - LOCATION_SERVICE_URL=http://location-service:3005
+      - PAYMENT_SERVICE_URL=http://payment-service:3006
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+      - ANALYTICS_SERVICE_URL=http://analytics-service:3008
+      - JWT_SECRET=mudex-super-secret-key-32chars-long-min
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - user-service
+      - ride-service
+    volumes:
+      - ./api-gateway:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm start"
+
+volumes:
+  postgres_data:

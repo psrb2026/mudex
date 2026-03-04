@@ -1,0 +1,57 @@
+# infrastructure/k8s/istio/destination-rule.yaml
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: dispatch-service
+spec:
+  host: dispatch-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        maxRequestsPerConnection: 10
+    outlierDetection:
+      consecutiveErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+    loadBalancer:
+      simple: LEAST_CONN
+      localityLbSetting:
+        enabled: true
+        failover:
+          - from: sa-east-1a  # São Paulo
+            to: sa-east-1b   # Rio de Janeiro
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-gateway-routing
+spec:
+  hosts:
+    - api.mudex.com
+  http:
+    - match:
+        - headers:
+            x-user-region:
+              exact: "southeast"
+      route:
+        - destination:
+            host: api-gateway
+            subset: sa-east-1
+          weight: 100
+    - match:
+        - headers:
+            x-user-region:
+              exact: "south"
+      route:
+        - destination:
+            host: api-gateway
+            subset: sa-east-2
+          weight: 100
+      # Failover automático
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: gateway-error,connect-failure,refused-stream
