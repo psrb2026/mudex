@@ -1,4 +1,34 @@
-node_modules/ 
-.expo/ 
-.next/ 
-dist/ 
+# Dependências
+node_modules/
+
+# Expo e Next.js
+.expo/
+.next/
+
+# Builds e Saídas
+dist/
+build/
+bin/
+obj/
+
+# Logs (Importante: remove os arquivos .log que aparecem na sua foto)
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Configurações Locais e Segredos
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDEs (VS Code, JetBrains, etc)
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
