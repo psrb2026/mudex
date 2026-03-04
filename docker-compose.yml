@@ -15,6 +15,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   redis:
     image: redis:7-alpine
@@ -27,18 +31,6 @@ services:
       timeout: 3s
       retries: 10
 
-  auth-service:
-    build: ./services/auth-service
-    container_name: mudex-auth-service
-    restart: always
-    environment:
-      - DB_HOST=mudex-postgres
-      - REDIS_URL=redis://mudex-redis:6379
-      - JWT_SECRET=mudex_super_secret
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-
   api-gateway:
     build: ./api-gateway
     container_name: mudex-api-gateway
@@ -48,9 +40,33 @@ services:
     environment:
       - AUTH_SERVICE_URL=http://mudex-auth-service:3001
       - USER_SERVICE_URL=http://mudex-user-service:3002
-      - JWT_SECRET=mudex_super_secret
+      - LOCATION_SERVICE_URL=http://mudex-location-service:3005
     depends_on:
       - auth-service
+      - user-service
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: mudex-auth-service
+    restart: always
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  user-service:
+    build: ./services/user-service
+    container_name: mudex-user-service
+    restart: always
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  location-service:
+    build: ./services/location-service
+    container_name: mudex-location-service
+    restart: always
+    depends_on:
+      postgres: { condition: service_healthy }
 
 networks:
   default:
