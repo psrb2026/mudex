@@ -1,0 +1,1 @@
+{\n  \"expo\": {\n    \"name\": \"Mudex App\",\n    \"version\": \"1.0.0\",\n    \"android\": {\n      \"package\": \"com.psrb2026.mudex\"\n    },\n    \"ios\": {\n      \"bundleIdentifier\": \"com.psrb2026.mudex\"\n    }\n  }\n}
