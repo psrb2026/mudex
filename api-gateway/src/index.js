@@ -2,25 +2,30 @@ const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
+const PORT = 3000;
 
-// O FOGUETINHO DA VITÓRIA
+// Função para criar proxies robustos
+const setupProxy = (path, target) => {
+  return createProxyMiddleware({
+    target: target,
+    changeOrigin: true,
+    pathRewrite: { [`^${path}`]: '' },
+    onError: (err, req, res) => {
+      console.error(`❌ Erro no Proxy para ${target}:`, err.message);
+      res.status(502).json({ error: 'Serviço temporariamente indisponível no backend.' });
+    }
+  });
+};
+
+// ROTAS (Conectando aos Aliases do Docker)
+app.use('/api/auth', setupProxy('/api/auth', process.env.AUTH_SERVICE_URL || 'http://auth-service:3001'));
+app.use('/api/user', setupProxy('/api/user', process.env.USER_SERVICE_URL || 'http://user-service:3002'));
+
+// ROTA DO FOGUETINHO (Para teste direto no navegador)
 app.get('/', (req, res) => {
-  res.send('<h1>🚀 Mudex API Gateway: O FOGUETINHO DA VITÓRIA ESTÁ ONLINE!</h1>');
+  res.send('<h1>🚀 Mudex API Gateway: SISTEMA ONLINE E INTEGRADO!</h1>');
 });
 
-// TESTE DE CONEXÃO
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Porteiro está de pé!' });
-});
-
-// REDIRECIONAMENTO (O segredo é o nome 'mudex-auth-service')
-app.use('/api/auth', createProxyMiddleware({
-  target: 'http://mudex-auth-service:3001',
-  changeOrigin: true,
-  pathRewrite: { '^/api/auth': '' },
-  onError: (err, req, res) => res.status(502).json({ error: 'Quase lá! O porteiro ligou mas o Auth Service não atendeu.' })
-}));
-
-app.listen(3000, () => {
-  console.log('✅ Porteiro pronto na porta 3000');
+app.listen(PORT, () => {
+  console.log(`✅ Gateway rodando na porta ${PORT}`);
 });
