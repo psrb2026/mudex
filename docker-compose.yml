@@ -26,11 +26,12 @@ services:
       postgres: { condition: service_healthy }
 
   # O PORTEIRO (API GATEWAY) - É aqui que o seu link conecta!
-  api-gateway:
-    build: ./api-gateway
-    container_name: mudex-api-gateway
+  auth-service:
+    build: ./services/auth-service
+    container_name: mudex-auth-service  # <-- ESTE NOME É O SEGREDO
+    restart: always
     ports:
-      - "3000:3000"
+      - "3001:3001"
     restart: always
     depends_on:
       - auth-service
