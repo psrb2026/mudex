@@ -1,10 +1,7 @@
 version: '3.8'
 
 services:
-  # ============================================
-  # INFRAESTRUTURA (Corrigido com Aliases)
-  # ============================================
-  
+  # O BANCO DE DADOS
   postgres:
     image: postgis/postgis:16-3.4
     container_name: mudex-postgres
@@ -14,121 +11,26 @@ services:
       POSTGRES_DB: mudex_db
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    networks:
-      default:
-        aliases:
-          - postgres # <-- Isso permite que os serviços achem o banco pelo nome curto
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mudex -d mudex_db"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: mudex-redis
-    ports:
-      - "6379:6379"
-    networks:
-      default:
-        aliases:
-          - redis # <-- Isso permite que os serviços achem o redis pelo nome curto
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: mudex-rabbitmq
-    environment:
-      - RABBITMQ_DEFAULT_USER=admin
-      - RABBITMQ_DEFAULT_PASS=admin
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    networks:
-      default:
-        aliases:
-          - rabbitmq # <-- Isso resolve a conexão do RabbitMQ
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ============================================
-  # MICROSERVIÇOS (Ajustados para falar com o Gateway)
-  # ============================================
-
+  # O SERVIÇO DE AUTENTICAÇÃO
   auth-service:
     build: ./services/auth-service
     container_name: mudex-auth-service
-    restart: always # <-- Essencial para não cair no Codespaces
-    networks:
-      default:
-        aliases:
-          - auth-service
-    environment:
-      - NODE_ENV=development
-      - PORT=3001
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=mudex
-      - DB_PASSWORD=mudex123
-      - DB_NAME=mudex_db
-      - DB_DIALECT=postgres
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=mudex-super-secret-key-32chars-long-min
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-
-  user-service:
-    build: ./services/user-service
-    container_name: mudex-user-service
     restart: always
-    networks:
-      default:
-        aliases:
-          - user-service
-    environment:
-      - NODE_ENV=development
-      - PORT=3002
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - REDIS_URL=redis://redis:6379
-      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
     depends_on:
       postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-      rabbitmq: { condition: service_healthy }
 
-  # ============================================
-  # API GATEWAY (O Coração do Erro 502)
-  # ============================================
-
+  # O PORTEIRO (API GATEWAY) - É aqui que o seu link conecta!
   api-gateway:
     build: ./api-gateway
     container_name: mudex-api-gateway
-    restart: always
-    environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - AUTH_SERVICE_URL=http://auth-service:3001
-      - USER_SERVICE_URL=http://user-service:3002
-      - RIDE_SERVICE_URL=http://ride-service:3003
-      - DISPATCH_SERVICE_URL=http://dispatch-service:3004
-      - LOCATION_SERVICE_URL=http://location-service:3005
     ports:
       - "3000:3000"
+    restart: always
     depends_on:
       - auth-service
-      - user-service
-
-volumes:
-  postgres_data:
