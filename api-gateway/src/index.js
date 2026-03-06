@@ -3,24 +3,24 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 
-// Rota de Teste (O Foguetinho)
+// O FOGUETINHO DA VITÓRIA
 app.get('/', (req, res) => {
   res.send('<h1>🚀 Mudex API Gateway: O FOGUETINHO DA VITÓRIA ESTÁ ONLINE!</h1>');
 });
 
-// Health Check
+// TESTE DE CONEXÃO
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Sistema pronto' });
+  res.json({ status: 'OK', message: 'Porteiro está de pé!' });
 });
 
-// Ligação com o Auth Service (Usando o nome mudex-auth-service)
+// REDIRECIONAMENTO (O segredo é o nome 'mudex-auth-service')
 app.use('/api/auth', createProxyMiddleware({
   target: 'http://mudex-auth-service:3001',
   changeOrigin: true,
   pathRewrite: { '^/api/auth': '' },
-  onError: (err, req, res) => res.status(502).json({ error: 'Erro: O serviço ainda está ligando...' })
+  onError: (err, req, res) => res.status(502).json({ error: 'Quase lá! O porteiro ligou mas o Auth Service não atendeu.' })
 }));
 
 app.listen(3000, () => {
-  console.log('✅ Gateway Ligado!');
+  console.log('✅ Porteiro pronto na porta 3000');
 });
