@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # O BANCO DE DADOS
+  # INFRAESTRUTURA CENTRAL
   postgres:
     image: postgis/postgis:16-3.4
     container_name: mudex-postgres
@@ -9,29 +9,56 @@ services:
       POSTGRES_USER: mudex
       POSTGRES_PASSWORD: mudex123
       POSTGRES_DB: mudex_db
-    ports:
-      - "5432:5432"
+    networks:
+      mudex_network:
+        aliases:
+          - postgres
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mudex -d mudex_db"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  # O SERVIÇO DE AUTENTICAÇÃO
+  redis:
+    image: redis:7-alpine
+    container_name: mudex-redis
+    networks:
+      mudex_network:
+        aliases:
+          - redis
+
+  # EXEMPLO DE SERVIÇO (Repita este padrão para os outros 12)
   auth-service:
     build: ./services/auth-service
     container_name: mudex-auth-service
     restart: always
+    environment:
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379
+    networks:
+      mudex_network:
+        aliases:
+          - auth-service
     depends_on:
       postgres: { condition: service_healthy }
 
-  # O PORTEIRO (API GATEWAY) - É aqui que o seu link conecta!
-  auth-service:
-    build: ./services/auth-service
-    container_name: mudex-auth-service  # <-- ESTE NOME É O SEGREDO
-    restart: always
+  # API GATEWAY (O ÚNICO QUE EXPOSTO PARA O MUNDO)
+  api-gateway:
+    build: ./api-gateway
+    container_name: mudex-api-gateway
     ports:
-      - "3001:3001"
+      - "3000:3000"
     restart: always
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3002
+      # Adicione as URLs de todos os serviços aqui usando os aliases
+    networks:
+      - mudex_network
     depends_on:
       - auth-service
+
+networks:
+  mudex_network:
+    name: mudex_network
+    driver: bridge
