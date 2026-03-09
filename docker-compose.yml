@@ -1,99 +1,112 @@
 services:
-  mudex-postgres:
-    image: postgis/postgis:16-3.4
-    container_name: mudex-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: mudex
-      POSTGRES_PASSWORD: mudex123
-      POSTGRES_DB: mudex_db
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mudex -d mudex_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
 
-  mudex-redis:
-    image: redis:7-alpine
-    container_name: mudex-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+postgres:
+image: postgis/postgis:16-3.4
+container_name: mudex-postgres
+restart: unless-stopped
+environment:
+POSTGRES_USER: mudex
+POSTGRES_PASSWORD: mudex123
+POSTGRES_DB: mudex_db
+ports:
+- "5432:5432"
+healthcheck:
+test: ["CMD-SHELL", "pg_isready -U mudex -d mudex_db"]
+interval: 5s
+timeout: 5s
+retries: 10
+volumes:
+- postgres_data:/var/lib/postgresql/data
 
-  mudex-rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: mudex-rabbitmq
-    restart: unless-stopped
-    ports:
-      - "5672:5672"
-      - "15672:15672"   # management UI
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+redis:
+image: redis:7-alpine
+container_name: mudex-redis
+restart: unless-stopped
+ports:
+- "6379:6379"
+healthcheck:
+test: ["CMD", "redis-cli", "ping"]
+interval: 5s
+timeout: 3s
+retries: 5
 
-  mudex-auth-service:
-    build: ./services/auth-service
-    container_name: mudex-auth-service
-    restart: unless-stopped
-    environment:
-      - PORT=3001
-      - DB_HOST=mudex-postgres
-      - REDIS_URL=redis://mudex-redis:6379
-    depends_on:
-      mudex-postgres:
-        condition: service_healthy
-      mudex-redis:
-        condition: service_healthy
-    healthcheck:   # ajuste conforme seu serviço tenha /health
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]  # ou /ready se existir
-      interval: 10s
-      timeout: 5s
-      retries: 5
+rabbitmq:
+image: rabbitmq:3-management-alpine
+container_name: mudex-rabbitmq
+restart: unless-stopped
+environment:
+- RABBITMQ_DEFAULT_USER=admin
+- RABBITMQ_DEFAULT_PASS=admin
+ports:
+- "5672:5672"
+- "15672:15672"
+healthcheck:
+test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+interval: 10s
+timeout: 5s
+retries: 5
 
-  mudex-user-service:
-    build: ./services/user-service
-    container_name: mudex-user-service
-    restart: unless-stopped
-    environment:
-      - PORT=3002
-      - DB_HOST=mudex-postgres
-      - REDIS_URL=redis://mudex-redis:6379
-    depends_on:
-      mudex-postgres:
-        condition: service_healthy
-      mudex-redis:
-        condition: service_healthy
-    healthcheck:   # ajuste se tiver endpoint de health
-      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+auth-service:
+build: ./services/auth-service
+container_name: mudex-auth-service
+restart: unless-stopped
+environment:
+- NODE_ENV=development
+- PORT=3001
+- DB_HOST=postgres
+- DB_PORT=5432
+- DB_USER=mudex
+- DB_PASSWORD=mudex123
+- DB_NAME=mudex_db
+- DB_DIALECT=postgres
+- REDIS_URL=redis://redis:6379
+- JWT_SECRET=mudex-super-secret-key-32chars-long-min
+depends_on:
+postgres:
+condition: service_healthy
+redis:
+condition: service_healthy
 
-  mudex-api-gateway:
-    build: ./api-gateway
-    container_name: mudex-api-gateway
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    depends_on:
-      - mudex-auth-service
-      - mudex-user-service
-    # Se quiser mais segurança, pode adicionar healthcheck aqui também
+user-service:
+build: ./services/user-service
+container_name: mudex-user-service
+restart: unless-stopped
+environment:
+- NODE_ENV=development
+- PORT=3002
+- DB_HOST=postgres
+- DB_PORT=5432
+- REDIS_URL=redis://redis:6379
+- RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+depends_on:
+postgres:
+condition: service_healthy
+redis:
+condition: service_healthy
+rabbitmq:
+condition: service_healthy
+
+api-gateway:
+build: ./api-gateway
+container_name: mudex-api-gateway
+restart: unless-stopped
+environment:
+- NODE_ENV=development
+- PORT=3000
+- AUTH_SERVICE_URL=http://auth-service:3001
+- USER_SERVICE_URL=http://user-service:3002
+- RIDE_SERVICE_URL=http://ride-service:3003
+- DISPATCH_SERVICE_URL=http://dispatch-service:3004
+- LOCATION_SERVICE_URL=http://location-service:3005
+ports:
+- "3000:3000"
+depends_on:
+- auth-service
+- user-service
 
 networks:
-  default:
-    name: mudex-network
+default:
+name: mudex-network
 
 volumes:
-  postgres_data:
+postgres_data:
