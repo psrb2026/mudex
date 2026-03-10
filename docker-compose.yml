@@ -1,5 +1,4 @@
 services:
-  # --- BANCO DE DADOS E INFRA ---
   postgres:
     image: postgis/postgis:16-3.4
     container_name: mudex-postgres
@@ -22,7 +21,6 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: mudex-rabbitmq
 
-  # --- MICROSERVIÇOS (Baseados nas suas pastas) ---
   auth-service:
     build: ./services/auth-service
     container_name: mudex-auth-service
@@ -71,7 +69,6 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
 
-  # --- GATEWAY (Dentro da pasta services conforme seu log) ---
   api-gateway:
     build: ./services/api-gateway
     container_name: mudex-api-gateway
