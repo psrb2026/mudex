@@ -1,5 +1,5 @@
 services:
-  # --- INFRAESTRUTURA (BANCO E MENSAGERIA) ---
+  # INFRAESTRUTURA CRÍTICA
   postgres:
     image: postgis/postgis:16-3.4
     container_name: mudex-postgres
@@ -22,7 +22,18 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: mudex-rabbitmq
 
-  # --- TODOS OS SERVIÇOS DA SUA ESTRUTURA ---
+  # GATEWAY (USANDO A PASTA DA RAIZ QUE TEM O PACKAGE.JSON)
+  api-gateway:
+    build: 
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: mudex-api-gateway
+    ports: ["3000:3000"]
+    depends_on:
+      - auth-service
+      - user-service
+
+  # SERVIÇOS DE NEGÓCIO (TODOS DENTRO DE /SERVICES)
   auth-service:
     build: ./services/auth-service
     container_name: mudex-auth-service
@@ -70,14 +81,3 @@ services:
     container_name: mudex-analytics-service
     depends_on:
       postgres: { condition: service_healthy }
-
-  # --- GATEWAY (ONDE O SISTEMA RECEBE OS ACESSOS) ---
-  api-gateway:
-    build: ./services/api-gateway
-    container_name: mudex-api-gateway
-    ports: ["3000:3000"]
-    depends_on:
-      - auth-service
-      - user-service
-      - ride-service
-      - location-service
