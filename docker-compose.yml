@@ -1,5 +1,6 @@
-services:
+version: '3.8'
 
+services:
   postgres:
     image: postgis/postgis:16-3.4
     container_name: mudex-postgres
@@ -109,6 +110,53 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  dispatch-service:
+    build: ./services/dispatch-service
+    container_name: mudex-dispatch-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  location-service:
+    build: ./services/location-service
+    container_name: mudex-location-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  payment-service:
+    build: ./services/payment-service
+    container_name: mudex-payment-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3006
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   api-gateway:
     build: ./api-gateway
     container_name: mudex-api-gateway
@@ -121,12 +169,16 @@ services:
       - RIDE_SERVICE_URL=http://ride-service:3003
       - DISPATCH_SERVICE_URL=http://dispatch-service:3004
       - LOCATION_SERVICE_URL=http://location-service:3005
+      - PAYMENT_SERVICE_URL=http://payment-service:3006
     ports:
       - "3000:3000"
     depends_on:
       - auth-service
       - user-service
       - ride-service
+      - dispatch-service
+      - location-service
+      - payment-service
 
 networks:
   default:
