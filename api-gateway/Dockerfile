@@ -1,14 +1,9 @@
 FROM node:18-alpine
-
 WORKDIR /app
-
-RUN apk add --no-cache postgresql-client
-
-COPY package*.json ./
+# Copia o package.json da pasta api-gateway para dentro do container
+COPY api-gateway/package*.json ./
 RUN npm install
-
-COPY . .
-
+# Copia todo o conteúdo da pasta api-gateway para dentro do container
+COPY api-gateway/ .
 EXPOSE 3000
-
 CMD ["npm", "start"]
