@@ -1,4 +1,5 @@
 services:
+  # --- BANCO DE DADOS E INFRA ---
   postgres:
     image: postgis/postgis:16-3.4
     container_name: mudex-postgres
@@ -16,16 +17,12 @@ services:
   redis:
     image: redis:7-alpine
     container_name: mudex-redis
-    ports: ["6379:6379"]
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: mudex-rabbitmq
-    ports: ["5672:5672", "15672:15672"]
-    environment:
-      - RABBITMQ_DEFAULT_USER=admin
-      - RABBITMQ_DEFAULT_PASS=admin
 
+  # --- MICROSERVIÇOS (Baseados nas suas pastas) ---
   auth-service:
     build: ./services/auth-service
     container_name: mudex-auth-service
@@ -62,14 +59,25 @@ services:
     depends_on:
       - rabbitmq
 
+  notification-service:
+    build: ./services/notification-service
+    container_name: mudex-notification-service
+    depends_on:
+      - rabbitmq
+
+  analytics-service:
+    build: ./services/analytics-service
+    container_name: mudex-analytics-service
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # --- GATEWAY (Dentro da pasta services conforme seu log) ---
   api-gateway:
-    build: ./api-gateway
+    build: ./services/api-gateway
     container_name: mudex-api-gateway
     ports: ["3000:3000"]
     depends_on:
       - auth-service
       - user-service
       - ride-service
-      - payment-service
       - location-service
-      - dispatch-service
