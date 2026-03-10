@@ -87,27 +87,27 @@ rabbitmq:
 condition: service_healthy
 
 ride-service:
-    build: ./services/ride-service
-    container_name: mudex-ride-service
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=development
-      - PORT=3003
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=mudex
-      - DB_PASSWORD=mudex123
-      - DB_NAME=mudex_db
-      - DB_DIALECT=postgres
-      - REDIS_URL=redis://redis:6379
-      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+build: ./services/ride-service
+container_name: mudex-ride-service
+restart: unless-stopped
+environment:
+ - NODE_ENV=development
+ - PORT=3003
+ - DB_HOST=postgres
+ - DB_PORT=5432
+ - DB_USER=mudex
+ - DB_PASSWORD=mudex123
+ - DB_NAME=mudex_db
+ - DB_DIALECT=postgres
+ - REDIS_URL=redis://redis:6379
+ - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+depends_on:
+postgres:
+condition: service_healthy
+redis:
+condition: service_healthy
+rabbitmq:
+condition: service_healthy
 
 api-gateway:
 build: ./api-gateway
