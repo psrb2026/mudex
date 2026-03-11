@@ -2,10 +2,10 @@
   "name": "mudex-user-service",
   "version": "1.0.0",
   "description": "Serviço de Gestão de Usuários - Mudex",
-  "main": "src/index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "express": "^4.18.2",
