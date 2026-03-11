@@ -26,9 +26,7 @@ services:
 
   # GATEWAY (Ajustado para a pasta na raiz)
   api-gateway:
-    build:
-      context: .                          # 👈 O ponto é a raiz (onde está o docker-compose.yml)
-      dockerfile: api-gateway/Dockerfile  # 👈 Onde está o arquivo de build
+    build: ./api-gateway
     container_name: mudex-api-gateway
     ports: ["3000:3000"]
     depends_on:
