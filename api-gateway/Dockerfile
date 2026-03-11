@@ -1,14 +1,15 @@
 FROM node:18-alpine
 WORKDIR /app
 
-# Como o Docker já vai estar dentro da pasta pelo Compose, 
-# pegamos o arquivo diretamente:
-COPY package*.json ./
+RUN apk add --no-cache postgresql-client
+
+# Agora buscamos o arquivo no caminho relativo ao novo contexto
+COPY api-gateway/package*.json ./
 
 RUN npm install
 
-# Copia tudo o que está na pasta api-gateway para dentro do container
-COPY . .
+# Copia tudo da pasta api-gateway para o /app do container
+COPY api-gateway/ .
 
 EXPOSE 3000
 CMD ["npm", "start"]
