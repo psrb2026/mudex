@@ -26,9 +26,9 @@ services:
 
   # GATEWAY (Ajustado para a pasta na raiz)
   api-gateway:
-    build: 
-      context: ./api-gateway  # 👈 Ajustado: Agora ele olha direto na raiz /mudex/api-gateway
-      dockerfile: Dockerfile
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
     container_name: mudex-api-gateway
     ports: ["3000:3000"]
     depends_on:
