@@ -28,7 +28,8 @@ services:
   api-gateway:
   build: ./api-gateway
   container_name: mudex-api-gateway
-  ports: ["3000:3000"]
+  ports:
+    - "3000:3000"
   depends_on:
     - auth-service
     - user-service
