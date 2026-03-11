@@ -3,12 +3,12 @@ WORKDIR /app
 
 RUN apk add --no-cache postgresql-client
 
-# Agora buscamos o arquivo no caminho relativo ao novo contexto
+# Como o contexto no compose é a raiz (.), buscamos dentro da pasta:
 COPY api-gateway/package*.json ./
 
 RUN npm install
 
-# Copia tudo da pasta api-gateway para o /app do container
+# Copia o conteúdo da pasta api-gateway para o /app do container
 COPY api-gateway/ .
 
 EXPOSE 3000
