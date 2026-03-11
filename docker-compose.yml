@@ -1,7 +1,7 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # INFRAESTRUTURA
+
   postgres:
     image: postgis/postgis:16-3.4
     container_name: mudex-postgres
@@ -25,9 +25,9 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: mudex-rabbitmq
 
-  # GATEWAY
   api-gateway:
-    build: ./api-gateway
+    build:
+      context: ./api-gateway
     container_name: mudex-api-gateway
     ports:
       - "3000:3000"
@@ -37,63 +37,70 @@ services:
       - ride-service
       - location-service
 
-  # SERVIÇOS
   auth-service:
-    build: ./services/auth-service
+    build:
+      context: ./services/auth-service
     container_name: mudex-auth-service
     depends_on:
       postgres:
         condition: service_healthy
 
   user-service:
-    build: ./services/user-service
+    build:
+      context: ./services/user-service
     container_name: mudex-user-service
     environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=mudex
-      - DB_PASSWORD=mudex123
-      - DB_NAME=mudex_db
-      - DB_DIALECT=postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: mudex
+      DB_PASSWORD: mudex123
+      DB_NAME: mudex_db
+      DB_DIALECT: postgres
     depends_on:
       postgres:
         condition: service_healthy
 
   ride-service:
-    build: ./services/ride-service
+    build:
+      context: ./services/ride-service
     container_name: mudex-ride-service
     depends_on:
       postgres:
         condition: service_healthy
 
   payment-service:
-    build: ./services/payment-service
+    build:
+      context: ./services/payment-service
     container_name: mudex-payment-service
     depends_on:
       postgres:
         condition: service_healthy
 
   location-service:
-    build: ./services/location-service
+    build:
+      context: ./services/location-service
     container_name: mudex-location-service
     depends_on:
       postgres:
         condition: service_healthy
 
   dispatch-service:
-    build: ./services/dispatch-service
+    build:
+      context: ./services/dispatch-service
     container_name: mudex-dispatch-service
     depends_on:
       - rabbitmq
 
   notification-service:
-    build: ./services/notification-service
+    build:
+      context: ./services/notification-service
     container_name: mudex-notification-service
     depends_on:
       - rabbitmq
 
   analytics-service:
-    build: ./services/analytics-service
+    build:
+      context: ./services/analytics-service
     container_name: mudex-analytics-service
     depends_on:
       postgres:
