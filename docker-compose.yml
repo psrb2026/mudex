@@ -24,16 +24,18 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: mudex-rabbitmq
 
-  # GATEWAY (Seguindo a lógica do ride-service)
+  # GATEWAY (Ajustado para a pasta na raiz)
   api-gateway:
-    build: ./api-gateway
+    build: 
+      context: ./api-gateway  # 👈 Ajustado: Agora ele olha direto na raiz /mudex/api-gateway
+      dockerfile: Dockerfile
     container_name: mudex-api-gateway
     ports: ["3000:3000"]
     depends_on:
       - auth-service
       - user-service
 
-  # SERVIÇOS DE NEGÓCIO (Mantendo o padrão que funcionava)
+  # SERVIÇOS DE NEGÓCIO
   auth-service:
     build: ./services/auth-service
     container_name: mudex-auth-service
@@ -43,6 +45,13 @@ services:
   user-service:
     build: ./services/user-service
     container_name: mudex-user-service
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=mudex
+      - DB_PASSWORD=mudex123
+      - DB_NAME=mudex_db
+      - DB_DIALECT=postgres
     depends_on:
       postgres: { condition: service_healthy }
 
