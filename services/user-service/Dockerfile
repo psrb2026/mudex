@@ -2,15 +2,17 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Adicionei essas bibliotecas caso você use criptografia de senha (bcrypt)
-RUN apk add --no-cache postgresql-client python3 make g++
-
+# Copia os arquivos de dependências
 COPY package*.json ./
+
+# Instala as dependências
 RUN npm install
 
+# Copia todo o conteúdo da pasta user-service para dentro do container
 COPY . .
 
-# Mudando para 3002 para não bater com o Gateway
-EXPOSE 3002
+# Expõe a porta 3000 (padrão do serviço)
+EXPOSE 3000
 
-CMD ["npm", "start"]
+# Comando para rodar
+CMD ["node", "index.js"]
