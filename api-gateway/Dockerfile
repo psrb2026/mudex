@@ -1,13 +1,14 @@
 FROM node:18-alpine
 WORKDIR /app
 
-# FORÇANDO O CAMINHO DA PASTA NO CONTEXTO DA RAIZ
-COPY api-gateway/package*.json ./
+# Como o Docker já vai estar dentro da pasta pelo Compose, 
+# pegamos o arquivo diretamente:
+COPY package*.json ./
 
 RUN npm install
 
-# COPIANDO TODO O CONTEÚDO (INCLUINDO O SEU INDEX.JS NOVO)
-COPY api-gateway/ .
+# Copia tudo o que está na pasta api-gateway para dentro do container
+COPY . .
 
 EXPOSE 3000
 CMD ["npm", "start"]
