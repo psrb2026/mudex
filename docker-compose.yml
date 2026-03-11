@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-
+  # Infraestrutura (Imagens Prontas)
   postgres:
     image: postgis/postgis:16-3.4
     container_name: mudex-postgres
@@ -25,9 +25,10 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: mudex-rabbitmq
 
+  # API Gateway
   api-gateway:
     build:
-      context: ./api-gateway
+      context: ./api-gateway  # Procura o Dockerfile dentro de /mudex/api-gateway
     container_name: mudex-api-gateway
     ports:
       - "3000:3000"
@@ -37,6 +38,7 @@ services:
       - ride-service
       - location-service
 
+  # Microserviços (Build Local)
   auth-service:
     build:
       context: ./services/auth-service
@@ -55,7 +57,6 @@ services:
       DB_USER: mudex
       DB_PASSWORD: mudex123
       DB_NAME: mudex_db
-      DB_DIALECT: postgres
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,18 +69,19 @@ services:
       postgres:
         condition: service_healthy
 
-  payment-service:
-    build:
-      context: ./services/payment-service
-    container_name: mudex-payment-service
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   location-service:
     build:
       context: ./services/location-service
     container_name: mudex-location-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Outros Serviços
+  payment-service:
+    build:
+      context: ./services/payment-service
+    container_name: mudex-payment-service
     depends_on:
       postgres:
         condition: service_healthy
