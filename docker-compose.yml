@@ -25,16 +25,16 @@ services:
     container_name: mudex-rabbitmq
 
   # GATEWAY (Ajustado para a pasta na raiz)
-  api-gateway:
-  build: ./api-gateway
-  container_name: mudex-api-gateway
-  ports:
-    - "3000:3000"
-  depends_on:
-    - auth-service
-    - user-service
-    - ride-service
-    - location-service
+    api-gateway:
+    build: ./api-gateway
+    container_name: mudex-api-gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - user-service
+      - ride-service
+      - location-service
 
   # SERVIÇOS DE NEGÓCIO
   auth-service:
