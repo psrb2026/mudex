@@ -9,7 +9,8 @@ services:
       POSTGRES_USER: mudex
       POSTGRES_PASSWORD: mudex123
       POSTGRES_DB: mudex_db
-    ports: ["5432:5432"]
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mudex -d mudex_db"]
       interval: 5s
@@ -24,8 +25,8 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: mudex-rabbitmq
 
-  # GATEWAY (Ajustado para a pasta na raiz)
-    api-gateway:
+  # GATEWAY
+  api-gateway:
     build: ./api-gateway
     container_name: mudex-api-gateway
     ports:
@@ -36,12 +37,13 @@ services:
       - ride-service
       - location-service
 
-  # SERVIÇOS DE NEGÓCIO
+  # SERVIÇOS
   auth-service:
     build: ./services/auth-service
     container_name: mudex-auth-service
     depends_on:
-      postgres: { condition: service_healthy }
+      postgres:
+        condition: service_healthy
 
   user-service:
     build: ./services/user-service
@@ -54,25 +56,29 @@ services:
       - DB_NAME=mudex_db
       - DB_DIALECT=postgres
     depends_on:
-      postgres: { condition: service_healthy }
+      postgres:
+        condition: service_healthy
 
   ride-service:
     build: ./services/ride-service
     container_name: mudex-ride-service
     depends_on:
-      postgres: { condition: service_healthy }
+      postgres:
+        condition: service_healthy
 
   payment-service:
     build: ./services/payment-service
     container_name: mudex-payment-service
     depends_on:
-      postgres: { condition: service_healthy }
+      postgres:
+        condition: service_healthy
 
   location-service:
     build: ./services/location-service
     container_name: mudex-location-service
     depends_on:
-      postgres: { condition: service_healthy }
+      postgres:
+        condition: service_healthy
 
   dispatch-service:
     build: ./services/dispatch-service
@@ -90,4 +96,5 @@ services:
     build: ./services/analytics-service
     container_name: mudex-analytics-service
     depends_on:
-      postgres: { condition: service_healthy }
+      postgres:
+        condition: service_healthy
