@@ -26,12 +26,15 @@ services:
 
   # GATEWAY (Ajustado para a pasta na raiz)
   api-gateway:
-    build: ./api-gateway
+    image: mudex-api-gateway  # <--- Ele vai usar a imagem que acabamos de criar
     container_name: mudex-api-gateway
-    ports: ["3000:3000"]
+    ports:
+      - "3000:3000"
     depends_on:
       - auth-service
       - user-service
+    networks:
+      - mudex-network
 
   # SERVIÇOS DE NEGÓCIO
   auth-service:
