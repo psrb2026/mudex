@@ -1,35 +1,27 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
-
 const app = express();
 
-// TESTE DE VIDA (Se abrir isso, a porta 3000 está OK)
 app.get('/', (req, res) => {
-  res.send('<h1 style="color:green; text-align:center; margin-top:100px;">🚀 MUDEX: GATEWAY ONLINE NA PORTA 3000!</h1>');
+  res.send('<h1 style="color:green; text-align:center; margin-top:50px;">🚀 MUDEX: GATEWAY ONLINE!</h1>');
 });
 
-// Auth Service
-app.use('/api/auth', createProxyMiddleware({
-  target: 'http://mudex-auth-service:3001',
-  changeOrigin: true,
-  pathRewrite: { '^/api/auth': '' },
-  onError: (err, req, res) => res.status(502).json({ error: 'Auth Service ainda offline' })
-}));
-
-// User Service
 app.use('/api/user', createProxyMiddleware({
-  target: 'http://mudex-user-service:3002',
+  target: 'http://user-service:3002',
   changeOrigin: true,
   pathRewrite: { '^/api/user': '' },
-  onError: (err, req, res) => res.status(502).json({ error: 'User Service ainda offline' })
+  onError: (err, req, res) => {
+    res.status(502).json({ error: 'Gateway não conectou ao User Service na 3002' });
+  }
 }));
 
-// Location Service  ← ADICIONADO
 app.use('/api/location', createProxyMiddleware({
-  target: 'http://mudex-location-service:3003',
+  target: 'http://location-service:3003',
   changeOrigin: true,
   pathRewrite: { '^/api/location': '' },
-  onError: (err, req, res) => res.status(502).json({ error: 'Location Service ainda offline' })
+  onError: (err, req, res) => {
+    res.status(502).json({ error: 'Gateway não conectou ao Location Service na 3003' });
+  }
 }));
 
-app.listen(3000, () => console.log("✅ Gateway rodando!"));
+app.listen(3000, '0.0.0.0', () => console.log('✅ Gateway na 3000'));
