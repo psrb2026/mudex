@@ -1,5 +1,5 @@
 /**
- * Location Service - Mudex (ARQUIVO COMPLETO CORRIGIDO)
+ * Location Service - Mudex (VERSÃO ORIGINAL RESTAURADA + AJUSTE DE CONEXÃO)
  * Local: services/location-service/src/index.js
  */
 
@@ -26,14 +26,14 @@ const logger = winston.createLogger({
 const app = express();
 app.use(express.json());
 
-// Faz o Node encontrar a pasta public (onde está o mapa) subindo um nível
+// --- AJUSTE PARA O CELULAR ACHAR O MAPA ---
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/', (req, res) => {
     const indexPath = path.join(__dirname, '..', 'public', 'index.html');
     res.sendFile(indexPath, (err) => {
         if (err) {
-            res.send('<h1>📍 Mudex Online</h1><p>Motor rodando! Se o mapa não apareceu, verifique se a pasta /public tem o arquivo index.html.</p>');
+            res.send('<h1>📍 Mudex Online</h1><p>Motor rodando, mas index.html não encontrado em /public.</p>');
         }
     });
 });
@@ -46,19 +46,14 @@ const io = new Server(httpServer, {
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3001';
 const RIDE_SERVICE_URL = process.env.RIDE_SERVICE_URL || 'http://localhost:3002';
 
-// CONFIGURAÇÃO DO REDIS PARA RODAR FORA DO DOCKER
+// REDIS AJUSTADO PARA LOCALHOST (Para rodar fora do Docker)
 let redisClient;
 async function connectRedis() {
   redisClient = redis.createClient({
-    url: 'redis://localhost:6379' // Mudado de 'redis' para 'localhost'
+    url: 'redis://127.0.0.1:6379' 
   });
-  redisClient.on('error', err => console.log('Aguardando Redis...'));
-  try {
-    await redisClient.connect();
-    console.log('✅ Conectado ao Redis com sucesso!');
-  } catch (err) {
-    console.log('❌ Erro ao conectar no Redis. Certifique-se que o Docker está rodando.');
-  }
+  redisClient.on('error', err => console.log("Aguardando Redis..."));
+  await redisClient.connect().catch(() => {});
 }
 connectRedis();
 
@@ -66,33 +61,33 @@ const activeConnections = new Map();
 const userSockets = new Map();
 
 io.on('connection', (socket) => {
-  console.log(`📱 Novo dispositivo conectado: ${socket.id}`);
+  logger.info(`Conectado: ${socket.id}`);
   
   socket.on('location:update', async (data) => {
     try {
-      const { latitude, longitude } = data;
-      if (latitude && longitude && redisClient.isOpen) {
-        // Salva a localização no Redis
-        await redisClient.geoAdd('drivers:online', {
-          longitude: parseFloat(longitude),
-          latitude: parseFloat(latitude),
-          member: String(socket.id)
-        });
+      const { latitude, longitude, userId, userType } = data;
+      if (!latitude || !longitude) return;
+
+      // Mantendo sua lógica original de salvar no Redis
+      if (redisClient.isOpen) {
+          await redisClient.geoAdd('drivers:online', {
+            longitude: parseFloat(longitude),
+            latitude: parseFloat(latitude),
+            member: String(userId || socket.id)
+          });
       }
       socket.emit('location:confirmed', { timestamp: Date.now() });
-    } catch (err) { console.error('Erro no GPS:', err); }
+    } catch (err) { logger.error('Erro no update:', err); }
   });
 
   socket.on('disconnect', () => {
-    console.log('❌ Dispositivo desconectado');
+    activeConnections.delete(socket.id);
   });
 });
 
-// FORÇANDO PORTA 8080 E IP 0.0.0.0 PARA O CODESPACES
+// --- O AJUSTE QUE MATA O ERRO 502 NO CODESPACES ---
 const PORT = 8080; 
 httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n*****************************************`);
-  console.log(`🚀 MUDEX NO AR! PORTA: ${PORT}`);
-  console.log(`🔗 USE O LINK DO GITHUB NA ABA "PORTS"`);
-  console.log(`*****************************************\n`);
+  console.log(`\n🚀 MUDEX ONLINE NA PORTA ${PORT}`);
+  console.log(`🔗 Verifique a aba PORTS e deixe como PUBLIC`);
 });
