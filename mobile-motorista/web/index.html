@@ -3,39 +3,66 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mudex Motorista</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: Arial; margin: 0; padding: 20px; background: #f5f6fa; }
-        .header { background: #27ae60; color: white; padding: 20px; text-align: center; }
-        .card { background: white; margin: 20px 0; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .button { background: #27ae60; color: white; border: none; padding: 15px 30px; border-radius: 25px; font-size: 18px; cursor: pointer; }
-        .info { margin-top: 20px; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f6fa; display: flex; flex-direction: column; height: 100vh; }
+        .header { background: #27ae60; color: white; padding: 15px; text-align: center; flex-shrink: 0; }
+        .header h1 { margin: 0; font-size: 20px; }
+        
+        /* Estilo do Mapa */
+        #map { flex-grow: 1; width: 100%; border-top: 5px solid #27ae60; }
+
+        .footer-info { background: white; padding: 15px; display: flex; justify-content: space-around; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); flex-shrink: 0; }
+        .stat { text-align: center; }
+        .stat strong { display: block; color: #27ae60; font-size: 18px; }
+        
+        .btn-online { position: absolute; bottom: 100px; right: 20px; z-index: 1000; background: #27ae60; color: white; border: none; padding: 15px; border-radius: 50%; width: 70px; height: 70px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🚗 MUDEX MOTORISTA</h1>
     </div>
-    
-    <div class="card" style="text-align: center;">
-        <h2>Status: <span style="color: #e74c3c;">Offline</span></h2>
-        <button class="button" onclick="goOnline()">FICAR ONLINE</button>
-    </div>
-    
-    <div class="card info">
-        <p>💰 Ganhos Hoje: <strong>R$ 0,00</strong></p>
-        <p>🚗 Corridas: <strong>0</strong></p>
-        <p>⭐ Avaliação: <strong>5.0</strong></p>
-    </div>
-    
-    <p style="text-align: center; color: #95a5a6;">API: 192.168.15.6:3000</p>
 
+    <div id="map"></div>
+
+    <button class="btn-online" onclick="goOnline()">ON</button>
+
+    <div class="footer-info">
+        <div class="stat">Ganhos Hoje<strong>R$ 0,00</strong></div>
+        <div class="stat">Corridas<strong>0</strong></div>
+        <div class="stat">Avaliação<strong>5.0</strong></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // 1. Inicia o mapa (Centralizado no Brasil/São Paulo como exemplo)
+        const map = L.map('map').setView([-23.5505, -46.6333], 16);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // 2. Configura o ícone do CARRINHO MUDEX
+        const carIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3082/3082349.png',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        });
+
+        // 3. Coloca o carrinho no mapa
+        const marker = L.marker([-23.5505, -46.6333], { icon: carIcon }).addTo(map)
+            .bindPopup('<b>Mudex</b><br>Buscando passageiro...');
+
         function goOnline() {
-            fetch('http://192.168.15.6:3000/health')
-                .then(r => r.json())
-                .then(data => alert('Backend OK: ' + data.status))
-                .catch(e => alert('Erro: ' + e));
+            alert("Você está Online no Mudex! O mapa começará a te seguir.");
+            // Aqui futuramente ligamos o GPS real do celular
         }
+
+        // Simulação para o carro não ficar parado (Mover levemente)
+        setInterval(() => {
+            let pos = marker.getLatLng();
+            marker.setLatLng([pos.lat + 0.00005, pos.lng + 0.00005]);
+            map.panTo(marker.getLatLng()); // Mapa segue o carro
+        }, 1500);
     </script>
 </body>
 </html>
