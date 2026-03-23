@@ -1,5 +1,6 @@
 /**
- * Location Service - Mudex (Versão Corrigida)
+ * Location Service - Mudex (Versão Corrigida para Codespaces)
+ * Local: services/location-service/src/index.js
  */
 
 const express = require('express');
@@ -8,6 +9,7 @@ const { Server } = require('socket.io');
 const redis = require('redis');
 const winston = require('winston');
 const axios = require('axios');
+const path = require('path');
 
 const logger = winston.createLogger({
   level: 'info',
@@ -24,30 +26,40 @@ const logger = winston.createLogger({
 });
 
 const app = express();
-app.use(express.json()); // Adicionado para suportar JSON no corpo das requisições
+app.use(express.json());
+
+// --- AJUSTE DE CAMINHO PARA ESTRUTURA /SRC ---
+// Como o arquivo está em /src, precisamos subir um nível (..) para achar a pasta /public
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
+app.get('/', (req, res) => {
+    // Tenta carregar o mapa. Se não existir, avisa que o serviço está online.
+    const indexPath = path.join(__dirname, '..', 'public', 'index.html');
+    res.sendFile(indexPath, (err) => {
+        if (err) {
+            res.send('<h1>📍 Mudex Online</h1><p>Motor rodando, mas index.html não encontrado em /public.</p>');
+        }
+    });
+});
+// ---------------------------------------------
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  },
+  cors: { origin: "*", methods: ["GET", "POST"] },
   pingTimeout: 60000,
   pingInterval: 25000
 });
 
-// Configuração de URLs de Microserviços
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3001';
 const RIDE_SERVICE_URL = process.env.RIDE_SERVICE_URL || 'http://localhost:3002';
 
-// Redis
 let redisClient;
 async function connectRedis() {
   redisClient = redis.createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
   });
   redisClient.on('error', err => logger.error('Redis Error:', err));
-  await redisClient.connect();
+  await redisClient.connect().catch(() => logger.error('Redis offline - verifique o container.'));
   logger.info('Location Service conectado ao Redis');
 }
 connectRedis();
@@ -55,150 +67,78 @@ connectRedis();
 const activeConnections = new Map();
 const userSockets = new Map();
 
-// Middleware de autenticação para Socket.io
 io.use(async (socket, next) => {
   try {
-    const token = socket.handshake.auth?.token;
-    const userType = socket.handshake.auth?.userType;
     const userId = socket.handshake.auth?.userId;
-
-    if (!userId || !userType) {
-      return next(new Error('Autenticação necessária: userId e userType são obrigatórios'));
-    }
-
+    const userType = socket.handshake.auth?.userType;
+    if (!userId || !userType) return next(new Error('Autenticação necessária'));
     socket.userId = userId;
     socket.userType = userType;
     next();
-  } catch (err) {
-    next(new Error('Erro na autenticação'));
-  }
+  } catch (err) { next(new Error('Erro na autenticação')); }
 });
 
 io.on('connection', (socket) => {
-  logger.info(`Conectado: ${socket.id} (User: ${socket.userId}, Type: ${socket.userType})`);
-  
-  activeConnections.set(socket.id, {
-    userId: socket.userId,
-    userType: socket.userType,
-    connectedAt: new Date()
-  });
+  logger.info(`Conectado: ${socket.id} (User: ${socket.userId})`);
+  activeConnections.set(socket.id, { userId: socket.userId, userType: socket.userType });
   userSockets.set(socket.userId, socket.id);
 
   socket.on('location:update', async (data) => {
     try {
       const { latitude, longitude, heading, speed } = data;
-      
       if (latitude === undefined || longitude === undefined) return;
 
-      const locationData = {
-        userId: socket.userId,
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
-        heading: heading || 0,
-        speed: speed || 0,
-        timestamp: new Date().toISOString()
-      };
-
       if (socket.userType === 'driver') {
-        // Redis GEO - CORRIGIDO: member deve ser string
         await redisClient.geoAdd('drivers:online', {
-          longitude: locationData.longitude,
-          latitude: locationData.latitude,
+          longitude: parseFloat(longitude),
+          latitude: parseFloat(latitude),
           member: String(socket.userId)
         });
         
         await redisClient.hSet(`driver:${socket.userId}:location`, {
-          lat: String(locationData.latitude),
-          lng: String(locationData.longitude),
-          heading: String(locationData.heading),
-          speed: String(locationData.speed),
-          lastUpdate: String(Date.now()),
-          socketId: socket.id
+          lat: String(latitude),
+          lng: String(longitude),
+          lastUpdate: String(Date.now())
         });
         
-        // Update assíncrono (não trava o socket)
-        updateDriverLocation(socket.userId, locationData.latitude, locationData.longitude, true);
+        updateDriverLocation(socket.userId, latitude, longitude, true);
       }
-
-      // Notificar cliente se houver corrida ativa
-      const activeRide = await getActiveRide(socket.userId, socket.userType);
-      if (activeRide && socket.userType === 'driver') {
-        const customerSocketId = userSockets.get(String(activeRide.customer_id));
-        if (customerSocketId) {
-          io.to(customerSocketId).emit('driver:location', {
-            ride_id: activeRide.id,
-            location: locationData
-          });
-        }
-      }
-
       socket.emit('location:confirmed', { timestamp: Date.now() });
-    } catch (err) {
-      logger.error('Erro location:update:', err);
-    }
+    } catch (err) { logger.error('Erro no update:', err); }
   });
 
-  socket.on('disconnect', async () => {
+  socket.on('disconnect', () => {
     const conn = activeConnections.get(socket.id);
     if (conn) {
-      if (conn.userType === 'driver') {
-        // Aguarda reconexão antes de remover do GEO
-        setTimeout(async () => {
-          if (userSockets.get(conn.userId) === socket.id) {
-             await redisClient.zRem('drivers:online', String(conn.userId));
-             await redisClient.sRem('drivers:active', String(conn.userId));
-             userSockets.delete(conn.userId);
-          }
-        }, 5000);
-      } else {
-        userSockets.delete(conn.userId);
-      }
+      userSockets.delete(conn.userId);
       activeConnections.delete(socket.id);
     }
   });
 });
 
-// API HTTP
-app.get('/nearby-drivers', async (req, res) => {
-  try {
-    const { lat, lng, radius = 5000 } = req.query;
-    if (!lat || !lng) return res.status(400).json({ error: 'Lat/Lng requeridos' });
+app.get('/health', (req, res) => res.json({ status: 'OK', online: activeConnections.size }));
 
-    // GEOSEARCH - Versão compatível com Redis 6.2+
-    const drivers = await redisClient.geoSearch('drivers:online', 
-      { latitude: parseFloat(lat), longitude: parseFloat(lng) },
-      { radius: parseInt(radius), unit: 'm' },
-      ['WITHDIST', 'WITHCOORD']
-    );
-
-    res.json({ drivers });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/health', async (req, res) => {
-  res.json({ status: 'OK', connections: activeConnections.size });
-});
-
-// Helpers com tratamento de erro
 async function updateDriverLocation(driverId, lat, lng, isOnline) {
   try {
     await axios.patch(`${USER_SERVICE_URL}/drivers/${driverId}/location`, {
       latitude: lat, longitude: lng, is_online: isOnline
-    }, { timeout: 2000 });
-  } catch (e) { /* Silencioso para não travar main thread */ }
+    }, { timeout: 1000 });
+  } catch (e) { }
 }
 
 async function getActiveRide(userId, userType) {
   try {
     const { data } = await axios.get(`${RIDE_SERVICE_URL}/active`, {
       headers: { 'x-user-id': userId, 'x-user-type': userType },
-      timeout: 2000
+      timeout: 1000
     });
     return data;
   } catch (e) { return null; }
 }
 
-const PORT = process.env.PORT || 3005;
-httpServer.listen(PORT, () => logger.info(`📍 Location Service na porta ${PORT}`));
+// PORTA 8080 E IP 0.0.0.0 PARA O CODESPACES
+const PORT = process.env.PORT || 8080;
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🚀 MUDEX RODANDO NA PORTA ${PORT}`);
+  console.log(`🔗 Link: https://congenial-guide-x5jwvx4p547rhvrv6-${PORT}.app.github.dev/`);
+});
