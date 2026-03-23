@@ -1,5 +1,5 @@
 /**
- * Location Service - Mudex (Versão Corrigida para Codespaces)
+ * Location Service - Mudex (ARQUIVO COMPLETO CORRIGIDO)
  * Local: services/location-service/src/index.js
  */
 
@@ -19,126 +19,80 @@ const logger = winston.createLogger({
   ),
   defaultMeta: { service: 'location-service' },
   transports: [
-    new winston.transports.Console(),
-    new winston.transports.File({ filename: 'logs/location-error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/location-combined.log' })
+    new winston.transports.Console()
   ]
 });
 
 const app = express();
 app.use(express.json());
 
-// --- AJUSTE DE CAMINHO PARA ESTRUTURA /SRC ---
-// Como o arquivo está em /src, precisamos subir um nível (..) para achar a pasta /public
+// Faz o Node encontrar a pasta public (onde está o mapa) subindo um nível
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/', (req, res) => {
-    // Tenta carregar o mapa. Se não existir, avisa que o serviço está online.
     const indexPath = path.join(__dirname, '..', 'public', 'index.html');
     res.sendFile(indexPath, (err) => {
         if (err) {
-            res.send('<h1>📍 Mudex Online</h1><p>Motor rodando, mas index.html não encontrado em /public.</p>');
+            res.send('<h1>📍 Mudex Online</h1><p>Motor rodando! Se o mapa não apareceu, verifique se a pasta /public tem o arquivo index.html.</p>');
         }
     });
 });
-// ---------------------------------------------
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
-  pingTimeout: 60000,
-  pingInterval: 25000
+  cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3001';
 const RIDE_SERVICE_URL = process.env.RIDE_SERVICE_URL || 'http://localhost:3002';
 
+// CONFIGURAÇÃO DO REDIS PARA RODAR FORA DO DOCKER
 let redisClient;
 async function connectRedis() {
   redisClient = redis.createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379'
+    url: 'redis://localhost:6379' // Mudado de 'redis' para 'localhost'
   });
-  redisClient.on('error', err => logger.error('Redis Error:', err));
-  await redisClient.connect().catch(() => logger.error('Redis offline - verifique o container.'));
-  logger.info('Location Service conectado ao Redis');
+  redisClient.on('error', err => console.log('Aguardando Redis...'));
+  try {
+    await redisClient.connect();
+    console.log('✅ Conectado ao Redis com sucesso!');
+  } catch (err) {
+    console.log('❌ Erro ao conectar no Redis. Certifique-se que o Docker está rodando.');
+  }
 }
 connectRedis();
 
 const activeConnections = new Map();
 const userSockets = new Map();
 
-io.use(async (socket, next) => {
-  try {
-    const userId = socket.handshake.auth?.userId;
-    const userType = socket.handshake.auth?.userType;
-    if (!userId || !userType) return next(new Error('Autenticação necessária'));
-    socket.userId = userId;
-    socket.userType = userType;
-    next();
-  } catch (err) { next(new Error('Erro na autenticação')); }
-});
-
 io.on('connection', (socket) => {
-  logger.info(`Conectado: ${socket.id} (User: ${socket.userId})`);
-  activeConnections.set(socket.id, { userId: socket.userId, userType: socket.userType });
-  userSockets.set(socket.userId, socket.id);
-
+  console.log(`📱 Novo dispositivo conectado: ${socket.id}`);
+  
   socket.on('location:update', async (data) => {
     try {
-      const { latitude, longitude, heading, speed } = data;
-      if (latitude === undefined || longitude === undefined) return;
-
-      if (socket.userType === 'driver') {
+      const { latitude, longitude } = data;
+      if (latitude && longitude && redisClient.isOpen) {
+        // Salva a localização no Redis
         await redisClient.geoAdd('drivers:online', {
           longitude: parseFloat(longitude),
           latitude: parseFloat(latitude),
-          member: String(socket.userId)
+          member: String(socket.id)
         });
-        
-        await redisClient.hSet(`driver:${socket.userId}:location`, {
-          lat: String(latitude),
-          lng: String(longitude),
-          lastUpdate: String(Date.now())
-        });
-        
-        updateDriverLocation(socket.userId, latitude, longitude, true);
       }
       socket.emit('location:confirmed', { timestamp: Date.now() });
-    } catch (err) { logger.error('Erro no update:', err); }
+    } catch (err) { console.error('Erro no GPS:', err); }
   });
 
   socket.on('disconnect', () => {
-    const conn = activeConnections.get(socket.id);
-    if (conn) {
-      userSockets.delete(conn.userId);
-      activeConnections.delete(socket.id);
-    }
+    console.log('❌ Dispositivo desconectado');
   });
 });
 
-app.get('/health', (req, res) => res.json({ status: 'OK', online: activeConnections.size }));
-
-async function updateDriverLocation(driverId, lat, lng, isOnline) {
-  try {
-    await axios.patch(`${USER_SERVICE_URL}/drivers/${driverId}/location`, {
-      latitude: lat, longitude: lng, is_online: isOnline
-    }, { timeout: 1000 });
-  } catch (e) { }
-}
-
-async function getActiveRide(userId, userType) {
-  try {
-    const { data } = await axios.get(`${RIDE_SERVICE_URL}/active`, {
-      headers: { 'x-user-id': userId, 'x-user-type': userType },
-      timeout: 1000
-    });
-    return data;
-  } catch (e) { return null; }
-}
-
-// PORTA 8080 E IP 0.0.0.0 PARA O CODESPACES
-const PORT = process.env.PORT || 8080;
+// FORÇANDO PORTA 8080 E IP 0.0.0.0 PARA O CODESPACES
+const PORT = 8080; 
 httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🚀 MUDEX RODANDO NA PORTA ${PORT}`);
-  console.log(`🔗 Link: https://congenial-guide-x5jwvx4p547rhvrv6-${PORT}.app.github.dev/`);
+  console.log(`\n*****************************************`);
+  console.log(`🚀 MUDEX NO AR! PORTA: ${PORT}`);
+  console.log(`🔗 USE O LINK DO GITHUB NA ABA "PORTS"`);
+  console.log(`*****************************************\n`);
 });
